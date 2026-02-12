@@ -1,5 +1,30 @@
 import torch
 import numpy as np
+from model import ImageCaptioningModel
+import pickle
+
+def load_model(model_path, vocab_path, device):
+    """Load model and vocabulary from files"""
+    # Load vocabulary
+    with open(vocab_path, "rb") as f:
+        vocab_data = pickle.load(f)
+    
+    vocab_size = vocab_data["vocab_size"]
+    
+    # Load model
+    model = ImageCaptioningModel(vocab_size)
+    checkpoint = torch.load(model_path, map_location=device)
+    
+    # Handle different checkpoint formats
+    if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
+        model.load_state_dict(checkpoint["model_state_dict"])
+    else:
+        model.load_state_dict(checkpoint)
+    
+    model.to(device)
+    model.eval()
+    
+    return model
 
 def greedy_search(model, image_feature, idx2word, word2idx, device, max_len=20):
     """
