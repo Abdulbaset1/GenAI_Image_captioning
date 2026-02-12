@@ -34,22 +34,32 @@ def download_artifacts():
     # Download model if not exists
     if not os.path.exists(model_path):
         with st.spinner("Downloading model... This may take a few minutes..."):
-            response = requests.get(MODEL_URL, stream=True)
-            response.raise_for_status()
-            
-            with open(model_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
+            try:
+                response = requests.get(MODEL_URL, stream=True)
+                response.raise_for_status()
+                
+                with open(model_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                st.success("✅ Model downloaded successfully!")
+            except Exception as e:
+                st.error(f"Failed to download model: {str(e)}")
+                raise e
     
     # Download vocab if not exists
     if not os.path.exists(vocab_path):
         with st.spinner("Downloading vocabulary..."):
-            response = requests.get(VOCAB_URL, stream=True)
-            response.raise_for_status()
-            
-            with open(vocab_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
+            try:
+                response = requests.get(VOCAB_URL, stream=True)
+                response.raise_for_status()
+                
+                with open(vocab_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                st.success("✅ Vocabulary downloaded successfully!")
+            except Exception as e:
+                st.error(f"Failed to download vocabulary: {str(e)}")
+                raise e
     
     return model_path, vocab_path
 
@@ -67,10 +77,11 @@ def load_artifacts():
     
     word2idx = vocab_data["word2idx"]
     idx2word = vocab_data["idx2word"]
+    vocab_size = vocab_data["vocab_size"]
     
     # Load model
     from model import ImageCaptioningModel
-    model = ImageCaptioningModel(vocab_data["vocab_size"])
+    model = ImageCaptioningModel(vocab_size)
     
     # Load checkpoint
     checkpoint = torch.load(model_path, map_location=device)
@@ -158,39 +169,44 @@ def main():
             
             # Generate caption
             with st.spinner("🎨 Analyzing image and generating caption..."):
-                features = extract_features(image, extractor, feat_device)
-                caption = greedy_search(model, features, idx2word, word2idx, device, max_length)
-            
-            # Display caption in nice box
-            st.success("✅ Caption generated successfully!")
-            
-            # Styled caption box
-            st.markdown(
-                f"""
-                <div style="
-                    background-color: #f0f2f6;
-                    padding: 20px;
-                    border-radius: 10px;
-                    border-left: 5px solid #ff4b4b;
-                    margin: 10px 0;
-                ">
-                    <h3 style="color: #333; margin: 0;">{caption}</h3>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-            
-            # Download button
-            st.download_button(
-                label="📥 Download Caption",
-                data=caption,
-                file_name="caption.txt",
-                mime="text/plain"
-            )
-            
-            # Try another image button
-            if st.button("🔄 Generate Another"):
-                st.experimental_rerun()
+                try:
+                    features = extract_features(image, extractor, feat_device)
+                    caption = greedy_search(model, features, idx2word, word2idx, device, max_length)
+                    
+                    # Display caption in nice box
+                    st.success("✅ Caption generated successfully!")
+                    
+                    # Styled caption box
+                    st.markdown(
+                        f"""
+                        <div style="
+                            background-color: #f0f2f6;
+                            padding: 20px;
+                            border-radius: 10px;
+                            border-left: 5px solid #ff4b4b;
+                            margin: 10px 0;
+                        ">
+                            <h3 style="color: #333; margin: 0;">{caption}</h3>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                    
+                    # Download button
+                    st.download_button(
+                        label="📥 Download Caption",
+                        data=caption,
+                        file_name="caption.txt",
+                        mime="text/plain"
+                    )
+                    
+                    # Try another image button
+                    if st.button("🔄 Generate Another"):
+                        st.runtime.legacy_caching.clear_cache()
+                        st.experimental_rerun()
+                        
+                except Exception as e:
+                    st.error(f"Error generating caption: {str(e)}")
     
     else:
         # Show sample instructions
